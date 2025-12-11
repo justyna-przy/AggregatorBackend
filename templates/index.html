@@ -2,15 +2,29 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Hello Flask</title>
+  <title>Elevator MQTT Feed</title>
 </head>
 <body>
-  <h1>Hello Flask + SQLite</h1>
-  <p>Visits (latest first):</p>
-  <ul>
-    {% for v in visits %}
-      <li>{{ v.ts }} — {{ v.note }}</li>
-    {% endfor %}
-  </ul>
+  <h1>MQTT Messages</h1>
+  <p>Showing the latest messages published by the ESP.</p>
+  <ul id="messages"></ul>
+
+  <script>
+    async function loadMessages() {
+      try {
+        const res = await fetch("/api/messages");
+        const data = await res.json();
+        const list = document.getElementById("messages");
+        list.innerHTML = data.map(m =>
+          `<li><strong>${m.topic}</strong>: ${m.payload}</li>`
+        ).join("");
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    loadMessages();
+    setInterval(loadMessages, 200);
+  </script>
 </body>
 </html>
