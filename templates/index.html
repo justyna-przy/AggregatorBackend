@@ -1,0 +1,16 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Hello Flask</title>
+</head>
+<body>
+  <h1>Hello Flask + SQLite</h1>
+  <p>Visits (latest first):</p>
+  <ul>
+    {% for v in visits %}
+      <li>{{ v.ts }} — {{ v.note }}</li>
+    {% endfor %}
+  </ul>
+</body>
+</html>
