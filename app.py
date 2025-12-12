@@ -1,57 +1,9 @@
-import json
-import threading
+from flask import Flask, jsonify, render_template, request
 
-import paho.mqtt.client as mqtt
-from flask import Flask, jsonify, render_template
-
-from config import (
-    MAX_MESSAGES,
-    MQTT_BROKER,
-    MQTT_CLIENT_ID,
-    MQTT_PORT,
-    MQTT_TOPIC,
-)
-
-latest_messages: list[dict[str, str]] = []
+from config import MQTT_COMMAND_TOPIC
+from mqtt_client import launch_mqtt_thread, latest_messages, publish_message
 
 app = Flask(__name__)
-
-
-def on_mqtt_connect(client: mqtt.Client, userdata, flags, reason_code, properties=None):
-    print(f"[MQTT] Connected with code {reason_code}, subscribing to {MQTT_TOPIC}")
-    client.subscribe(MQTT_TOPIC)
-
-
-def on_mqtt_message(client: mqtt.Client, userdata, msg: mqtt.MQTTMessage):
-    payload = msg.payload.decode("utf-8", errors="replace")
-    print(f"[MQTT] {msg.topic}: {payload}")
-    try:
-        json.loads(payload)
-    except json.JSONDecodeError:
-        pass
-
-    latest_messages.append(
-        {
-            "topic": msg.topic,
-            "payload": payload,
-        }
-    )
-    del latest_messages[:-MAX_MESSAGES]
-    print(f"[MQTT] Stored message. Total buffered: {len(latest_messages)}")
-
-
-def start_mqtt_loop():
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=MQTT_CLIENT_ID)
-    client.on_connect = on_mqtt_connect
-    client.on_message = on_mqtt_message
-    print(f"[MQTT] Connecting to {MQTT_BROKER}:{MQTT_PORT}")
-    client.connect(MQTT_BROKER, MQTT_PORT, keepalive=60)
-    client.loop_forever()
-
-
-def launch_mqtt_thread():
-    t = threading.Thread(target=start_mqtt_loop, daemon=True)
-    t.start()
 
 
 @app.route("/")
@@ -61,7 +13,16 @@ def index():
 
 @app.route("/api/messages")
 def api_messages():
-    return jsonify(list(reversed(latest_messages)))
+    return jsonify(latest_messages())
+
+
+@app.post("/api/emergency-stop")
+def api_emergency_stop():
+    data = request.get_json(silent=True) or {}
+    payload = data.get("payload", "emergency_stop")
+    ok = publish_message(payload)
+    status = "sent" if ok else "failed"
+    return jsonify({"status": status, "topic": MQTT_COMMAND_TOPIC, "payload": payload})
 
 
 if __name__ == "__main__":

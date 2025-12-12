@@ -61,8 +61,15 @@
       }
 
       document.getElementById("panic-btn").addEventListener("click", () => {
-        appendLine("Emergency Stop button pressed (hook backend publish here)");
-        // TODO: POST to backend endpoint to publish MQTT command when implemented
+        appendLine("Emergency Stop button pressed -> sending MQTT command");
+        fetch("/api/emergency-stop", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ payload: "emergency_stop" }),
+        })
+          .then((res) => res.json())
+          .then((data) => appendLine(`Command status: ${data.status} (${data.topic})`))
+          .catch((err) => appendLine(`Command error: ${err.message}`));
       });
 
       loadMessages();
