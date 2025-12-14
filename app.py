@@ -1,9 +1,14 @@
 from flask import Flask, jsonify, render_template, request
 
-from config import MQTT_COMMAND_TOPIC
+from config import MQTT_COMMAND_TOPIC, SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS
 from mqtt_client import launch_mqtt_thread, latest_messages, publish_message
+from models import db
 
 app = Flask(__name__)
+app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = SQLALCHEMY_TRACK_MODIFICATIONS
+
+db.init_app(app)
 
 
 @app.route("/")
