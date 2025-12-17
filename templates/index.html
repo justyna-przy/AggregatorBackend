@@ -25,6 +25,10 @@
           <div class="console" id="console"></div>
         </div>
 
+        <audio id="elevator-audio" loop>
+          <source src="/static/assets/elavator_music.mp3" type="audio/mpeg" />
+        </audio>
+
         <button id="panic-btn" class="panic-btn">
           <img
             src="/static/assets/emergency-button.jpg"
@@ -36,6 +40,14 @@
 
     <script>
       const consoleEl = document.getElementById("console");
+      const audioEl = document.getElementById("elevator-audio");
+
+      function startAudio() {
+        if (!audioEl) return;
+        audioEl.volume = 0.4;
+        audioEl.play().catch(() => {
+        });
+      }
 
       function appendLine(msg) {
         const ts = new Date().toLocaleTimeString();
@@ -62,6 +74,7 @@
 
       document.getElementById("panic-btn").addEventListener("click", () => {
         appendLine("Emergency Stop button pressed -> sending MQTT command");
+        startAudio();
         fetch("/api/emergency-stop", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -74,6 +87,9 @@
 
       loadMessages();
       setInterval(loadMessages, 1000);
+
+      // Try to start audio on first user interaction if autoplay is blocked.
+      window.addEventListener("click", startAudio, { once: true });
     </script>
   </body>
 </html>
