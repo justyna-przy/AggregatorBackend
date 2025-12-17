@@ -4,7 +4,6 @@ body {
   font-family: "Comic Sans MS", "Comic Sans", cursive, sans-serif;
   background-image: url("assets/starsglow1.gif");
   background-blend-mode: overlay;
-  color: rgb(254, 206, 93);
   min-height: 100vh;
   position: relative;
   overflow-x: hidden; 
@@ -35,23 +34,34 @@ header {
 }
 
 main {
-  padding: 24px;
+  padding: 30px;
   max-width: 960px;
   margin: 0 auto;
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
   flex-direction: column;
-  border: 2px dotted pink;  
-  width: 80%;
+  border: 2px solid rgb(92, 92, 92);
+  width: 800px;
+  height: 360px;
+  background-image: url("assets/metal_panel.jpg");
+  background-size: repeat;
+  background-blend-mode: overlay;
+}
 
+main h2{
+  margin: 0;
+  padding: 0;
+  color: rgb(0, 0, 0);
 }
 
 section {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   flex-direction: row;
   width: 100%;
+
 }
 
 
@@ -85,19 +95,14 @@ section {
 }
 
 
-.console-container {
-  width: 60%;
-  text-align: center;
-}
-
-
 .console {
   background: #05070c;
   border: 1px solid #30363d;
   text-align: left;
   border-radius: 8px;
   padding: 12px;
-  height: 160px;
+  height: 200px;
+  width: 440px;
   font-family: "Consolas", "Fira Code", monospace;
   color: #a5dd52;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);

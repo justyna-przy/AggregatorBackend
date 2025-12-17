@@ -20,10 +20,7 @@
     <main>
       <h2>Admin Panel</h2>
       <section>
-        <div class="console-container">
-          <h2>Console</h2>
-          <div class="console" id="console"></div>
-        </div>
+        <div class="console" id="console"></div>
 
         <audio id="elevator-audio" loop>
           <source src="/static/assets/elavator_music.mp3" type="audio/mpeg" />
@@ -45,8 +42,7 @@
       function startAudio() {
         if (!audioEl) return;
         audioEl.volume = 0.4;
-        audioEl.play().catch(() => {
-        });
+        audioEl.play().catch(() => {});
       }
 
       function appendLine(msg) {
@@ -81,7 +77,9 @@
           body: JSON.stringify({ payload: "emergency_stop" }),
         })
           .then((res) => res.json())
-          .then((data) => appendLine(`Command status: ${data.status} (${data.topic})`))
+          .then((data) =>
+            appendLine(`Command status: ${data.status} (${data.topic})`)
+          )
           .catch((err) => appendLine(`Command error: ${err.message}`));
       });
 
