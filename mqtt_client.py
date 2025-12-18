@@ -1,5 +1,6 @@
-import json
 import threading
+from datetime import datetime, timezone
+from queue import Queue
 from typing import Any, Dict, List
 
 import paho.mqtt.client as mqtt
@@ -14,7 +15,33 @@ from config import (
 )
 
 _latest_messages: List[Dict[str, Any]] = []
+_message_lock = threading.Lock()
+_message_id_counter = 0
 _client: mqtt.Client | None = None
+_subscribers: List[Queue] = []
+_subscribers_lock = threading.Lock()
+
+
+def subscribe_to_messages() -> Queue:
+    """Subscribe to new messages. Returns a queue that receives new messages."""
+    q: Queue = Queue()
+    with _subscribers_lock:
+        _subscribers.append(q)
+    return q
+
+
+def unsubscribe(q: Queue):
+    """Unsubscribe from messages."""
+    with _subscribers_lock:
+        if q in _subscribers:
+            _subscribers.remove(q)
+
+
+def _notify_subscribers(message: Dict[str, Any]):
+    """Notify all subscribers of a new message."""
+    with _subscribers_lock:
+        for q in _subscribers:
+            q.put(message)
 
 
 def on_mqtt_connect(client: mqtt.Client, userdata=None, flags=None, reason_code=0, properties=None):
@@ -23,16 +50,23 @@ def on_mqtt_connect(client: mqtt.Client, userdata=None, flags=None, reason_code=
 
 
 def on_mqtt_message(client: mqtt.Client, userdata, msg: mqtt.MQTTMessage):
+    global _message_id_counter
     payload = msg.payload.decode("utf-8", errors="replace")
     print(f"[MQTT] {msg.topic}: {payload}")
-    try:
-        json.loads(payload)
-    except json.JSONDecodeError:
-        pass
 
-    _latest_messages.append({"topic": msg.topic, "payload": payload})
-    del _latest_messages[:-MAX_MESSAGES]
-    print(f"[MQTT] Stored message. Total buffered: {len(_latest_messages)}")
+    with _message_lock:
+        _message_id_counter += 1
+        message = {
+            "id": _message_id_counter,
+            "topic": msg.topic,
+            "payload": payload,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        _latest_messages.append(message)
+        del _latest_messages[:-MAX_MESSAGES]
+
+    _notify_subscribers(message)
+    print(f"[MQTT] Stored message #{message['id']}. Total buffered: {len(_latest_messages)}")
 
 
 def start_mqtt_loop():
@@ -52,7 +86,8 @@ def launch_mqtt_thread():
 
 
 def latest_messages() -> list[dict[str, Any]]:
-    return list(reversed(_latest_messages))
+    with _message_lock:
+        return list(reversed(_latest_messages))
 
 
 def publish_message(

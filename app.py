@@ -1,7 +1,15 @@
-from flask import Flask, jsonify, render_template, request
+import json
+
+from flask import Flask, Response, jsonify, render_template, request
 
 from config import MQTT_COMMAND_TOPIC, SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS
-from mqtt_client import launch_mqtt_thread, latest_messages, publish_message
+from mqtt_client import (
+    launch_mqtt_thread,
+    latest_messages,
+    publish_message,
+    subscribe_to_messages,
+    unsubscribe,
+)
 from models import db
 
 app = Flask(__name__)
@@ -21,13 +29,37 @@ def api_messages():
     return jsonify(latest_messages())
 
 
-@app.post("/api/emergency-stop")
-def api_emergency_stop():
+@app.post("/api/command")
+def api_command():
     data = request.get_json(silent=True) or {}
-    payload = data.get("payload", "emergency_stop")
+    payload = data.get("payload", "")
+    if not payload:
+        return jsonify({"status": "error", "message": "No payload provided"}), 400
     ok = publish_message(payload)
     status = "sent" if ok else "failed"
     return jsonify({"status": status, "topic": MQTT_COMMAND_TOPIC, "payload": payload})
+
+
+@app.route("/api/events/stream")
+def api_events_stream():
+    """Server-Sent Events endpoint for real-time message streaming."""
+    def generate():
+        q = subscribe_to_messages()
+        try:
+            while True:
+                message = q.get()
+                yield f"data: {json.dumps(message)}\n\n"
+        except GeneratorExit:
+            unsubscribe(q)
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 if __name__ == "__main__":
