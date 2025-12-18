@@ -10,7 +10,6 @@ import paho.mqtt.client as mqtt
 from config import (
     MAX_MESSAGES,
     MQTT_BROKER,
-    MQTT_CLIENT_ID,
     MQTT_COMMAND_TOPIC,
     MQTT_PORT,
     MQTT_EVENT_TOPIC,
@@ -139,7 +138,7 @@ def on_mqtt_message(client: mqtt.Client, userdata, msg: mqtt.MQTTMessage):
 
 def start_mqtt_loop():
     global _client
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=MQTT_CLIENT_ID)
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     client.on_connect = on_mqtt_connect
     client.on_message = on_mqtt_message
     print(f"[MQTT] Connecting to {MQTT_BROKER}:{MQTT_PORT}")
