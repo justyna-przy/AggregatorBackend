@@ -19,25 +19,79 @@
     </header>
     <main>
       <h2>Admin Panel</h2>
-      <section>
+
+      <audio id="elevator-audio" loop>
+        <source src="/static/assets/elavator_music.mp3" type="audio/mpeg" />
+      </audio>
+
+      <section class="dashboard">
+        <!-- Elevator Visual -->
+        <div class="elevator-shaft">
+          <div class="floor-indicator" data-floor="2">
+            <span class="floor-label">2</span>
+            <div class="floor-line"></div>
+          </div>
+          <div class="floor-indicator" data-floor="1">
+            <span class="floor-label">1</span>
+            <div class="floor-line"></div>
+          </div>
+          <div class="floor-indicator" data-floor="0">
+            <span class="floor-label">0</span>
+            <div class="floor-line"></div>
+          </div>
+          <div class="elevator-car" id="elevator-car">
+            <div class="car-direction" id="car-direction"></div>
+          </div>
+        </div>
+
+        <!-- Controls Panel -->
+        <div class="controls-panel">
+          <div class="status-display" id="status-display">
+            <div class="status-row">
+              <span class="status-label">MAX32655:</span>
+              <span class="status-value" id="connection-status">--</span>
+            </div>
+            <div class="status-row">
+              <span class="status-label">E-Stop:</span>
+              <span class="status-value" id="estop-status">--</span>
+            </div>
+            <div class="status-row">
+              <span class="status-label">Floor:</span>
+              <span class="status-value" id="status-floor">--</span>
+            </div>
+          </div>
+
+          <div class="floor-buttons">
+            <button class="floor-btn" data-floor="2">Floor 2</button>
+            <button class="floor-btn" data-floor="1">Floor 1</button>
+            <button class="floor-btn" data-floor="0">Floor 0</button>
+          </div>
+
+          <div class="action-buttons">
+            <button class="action-btn" id="status-btn">Get Status</button>
+            <button class="action-btn" id="reset-btn">Reset</button>
+          </div>
+
+          <button id="panic-btn" class="panic-btn">
+            <img
+              src="/static/assets/emergency-button.jpg"
+              alt="Emergency Stop Button"
+            />
+          </button>
+        </div>
+
+        <!-- Console -->
         <div class="console" id="console"></div>
-
-        <audio id="elevator-audio" loop>
-          <source src="/static/assets/elavator_music.mp3" type="audio/mpeg" />
-        </audio>
-
-        <button id="panic-btn" class="panic-btn">
-          <img
-            src="/static/assets/emergency-button.jpg"
-            alt="Emergency Stop Button"
-          />
-        </button>
       </section>
     </main>
 
     <script>
       const consoleEl = document.getElementById("console");
       const audioEl = document.getElementById("elevator-audio");
+      const elevatorCar = document.getElementById("elevator-car");
+      const carDirection = document.getElementById("car-direction");
+      const statusFloor = document.getElementById("status-floor");
+      let lastMessageId = 0;
 
       function startAudio() {
         if (!audioEl) return;
@@ -45,46 +99,223 @@
         audioEl.play().catch(() => {});
       }
 
-      function appendLine(msg) {
-        const ts = new Date().toLocaleTimeString();
+      function formatTimestamp(isoString) {
+        const date = new Date(isoString);
+        return date.toLocaleTimeString();
+      }
+
+      function appendLine(msg, timestamp = null) {
+        const ts = timestamp ? formatTimestamp(timestamp) : new Date().toLocaleTimeString();
         const line = document.createElement("div");
         line.textContent = `[${ts}] ${msg}`;
         consoleEl.appendChild(line);
         consoleEl.scrollTop = consoleEl.scrollHeight;
       }
 
-      async function loadMessages() {
+      function parseStatus(payload) {
+        // Parse: status:floor=N,dir=DIR,dest=0xNN
+        if (!payload.startsWith("status:")) return null;
+        try {
+          const parts = payload.slice(7).split(",");
+          const status = {};
+          for (const part of parts) {
+            const [key, val] = part.split("=");
+            status[key] = val;
+          }
+          return status;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      function updateElevatorVisual(floor, direction) {
+        // Position elevator car (0=bottom, 2=top)
+        // Each floor is ~60px apart, car height is 50px
+        const floorNum = parseInt(floor);
+        if (!isNaN(floorNum) && floorNum >= 0 && floorNum <= 2) {
+          const bottomOffset = floorNum * 60 + 5;
+          elevatorCar.style.bottom = `${bottomOffset}px`;
+        }
+
+        // Update direction arrow
+        if (direction === "up") {
+          carDirection.textContent = "▲";
+          carDirection.className = "car-direction dir-up";
+        } else if (direction === "down") {
+          carDirection.textContent = "▼";
+          carDirection.className = "car-direction dir-down";
+        } else {
+          carDirection.textContent = "●";
+          carDirection.className = "car-direction dir-stopped";
+        }
+      }
+
+      function updateStatusDisplay(status) {
+        if (!status) return;
+
+        statusFloor.textContent = status.floor || "--";
+        updateElevatorVisual(status.floor, status.dir);
+      }
+
+      function setConnectionStatus(connected) {
+        const el = document.getElementById("connection-status");
+        if (connected) {
+          el.textContent = "connected";
+          el.className = "status-value conn-ok";
+        } else {
+          el.textContent = "disconnected";
+          el.className = "status-value conn-err";
+        }
+      }
+
+      function setEstopStatus(active) {
+        const el = document.getElementById("estop-status");
+        if (active) {
+          el.textContent = "ACTIVE";
+          el.className = "status-value estop-active";
+        } else {
+          el.textContent = "released";
+          el.className = "status-value estop-released";
+        }
+      }
+
+      function handlePayload(payload) {
+        // Any message from ESP32 means MAX32655 is connected (unless it's a disconnect event)
+        if (payload === "max32655_disconnected") {
+          setConnectionStatus(false);
+          return;
+        }
+
+        // Receiving any other event means we're connected
+        setConnectionStatus(true);
+
+        // Status response: status:floor=N,dir=DIR,dest=0xNN
+        const status = parseStatus(payload);
+        if (status) {
+          updateStatusDisplay(status);
+          return;
+        }
+
+        // Floor events: stopped_at_floor_N
+        const floorMatch = payload.match(/stopped_at_floor_(\d)/);
+        if (floorMatch) {
+          updateElevatorVisual(floorMatch[1], "stopped");
+          statusFloor.textContent = floorMatch[1];
+          return;
+        }
+
+        // Emergency stop events
+        if (payload === "estop_activated") {
+          setEstopStatus(true);
+          return;
+        }
+        if (payload === "estop_released") {
+          setEstopStatus(false);
+          return;
+        }
+
+        // Button events: cabin_button_N, call_button_N
+        const cabinMatch = payload.match(/cabin_button_(\d)/);
+        if (cabinMatch) {
+          highlightFloorButton(cabinMatch[1]);
+          return;
+        }
+      }
+
+      function highlightFloorButton(floor) {
+        const btn = document.querySelector(`.floor-btn[data-floor="${floor}"]`);
+        if (btn) {
+          btn.classList.add("btn-pressed");
+          setTimeout(() => btn.classList.remove("btn-pressed"), 500);
+        }
+      }
+
+      function appendMessage(m) {
+        if (m.id && m.id <= lastMessageId) return;
+        if (m.id) lastMessageId = m.id;
+        appendLine(`${m.topic}: ${m.payload}`, m.timestamp);
+        handlePayload(m.payload);
+      }
+
+      async function loadInitialMessages() {
         try {
           const res = await fetch("/api/messages");
           const data = await res.json();
-          consoleEl.textContent = "";
-          data.forEach((m) => {
-            appendLine(`${m.topic}: ${m.payload}`);
-          });
-          appendLine(`--- fetched ${data.length} messages ---`);
+          data.forEach((m) => appendMessage(m));
+          appendLine("--- connected ---");
         } catch (err) {
           console.error(err);
           appendLine(`Error: ${err.message}`);
         }
       }
 
-      document.getElementById("panic-btn").addEventListener("click", () => {
-        appendLine("Emergency Stop button pressed -> sending MQTT command");
-        startAudio();
-        fetch("/api/emergency-stop", {
+      function connectEventStream() {
+        const evtSource = new EventSource("/api/events/stream");
+
+        evtSource.onmessage = (event) => {
+          try {
+            const m = JSON.parse(event.data);
+            appendMessage(m);
+          } catch (err) {
+            console.error("Failed to parse SSE message:", err);
+          }
+        };
+
+        evtSource.onerror = () => {
+          appendLine("--- connection lost, reconnecting... ---");
+          evtSource.close();
+          setTimeout(connectEventStream, 2000);
+        };
+      }
+
+      function sendCommand(cmd) {
+        appendLine(`Sending command: ${cmd}`);
+        return fetch("/api/command", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ payload: "emergency_stop" }),
+          body: JSON.stringify({ payload: cmd }),
         })
           .then((res) => res.json())
-          .then((data) =>
-            appendLine(`Command status: ${data.status} (${data.topic})`)
-          )
-          .catch((err) => appendLine(`Command error: ${err.message}`));
+          .then((data) => {
+            appendLine(`Command status: ${data.status}`);
+            return data;
+          })
+          .catch((err) => {
+            appendLine(`Command error: ${err.message}`);
+            throw err;
+          });
+      }
+
+      // Floor buttons
+      document.querySelectorAll(".floor-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const floor = btn.dataset.floor;
+          sendCommand(`floor:${floor}`);
+        });
       });
 
-      loadMessages();
-      setInterval(loadMessages, 1000);
+      // Status button
+      document.getElementById("status-btn").addEventListener("click", () => {
+        sendCommand("status");
+      });
+
+      // Reset button
+      document.getElementById("reset-btn").addEventListener("click", () => {
+        sendCommand("reset");
+      });
+
+      // Emergency stop button
+      document.getElementById("panic-btn").addEventListener("click", () => {
+        appendLine("Emergency Stop button pressed!");
+        startAudio();
+        sendCommand("estop");
+      });
+
+      loadInitialMessages();
+      connectEventStream();
+
+      // Request initial status
+      setTimeout(() => sendCommand("status"), 500);
 
       // Try to start audio on first user interaction if autoplay is blocked.
       window.addEventListener("click", startAudio, { once: true });
