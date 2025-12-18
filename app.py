@@ -7,16 +7,33 @@ from mqtt_client import (
     launch_mqtt_thread,
     latest_messages,
     publish_message,
+    register_flask_app,
     subscribe_to_messages,
     unsubscribe,
 )
-from models import db
+from models import EVENT_TYPES, EventType, db
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = SQLALCHEMY_DATABASE_URI
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = SQLALCHEMY_TRACK_MODIFICATIONS
 
 db.init_app(app)
+
+
+def init_db():
+    """Create tables and seed event types to match current MQTT payloads."""
+    with app.app_context():
+        db.create_all()
+        existing = {et.event_type for et in EventType.query.all()}
+        to_add = [name for name in EVENT_TYPES if name not in existing]
+        if to_add:
+            db.session.add_all([EventType(event_type=name) for name in to_add])
+            db.session.commit()
+
+
+# Ensure DB is ready and MQTT client can access the Flask app context
+init_db()
+register_flask_app(app)
 
 
 @app.route("/")

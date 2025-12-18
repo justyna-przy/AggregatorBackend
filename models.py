@@ -31,20 +31,20 @@ class Event(db.Model):
         return f'<Event {self.id}: {self.event_type_ref.event_type} at {self.timestamp}>'
 
 
-# Event type constants matching your embedded system
+# Event type constants matching the MQTT payload strings emitted by ESP32/MAX
 EVENT_TYPES = [
-    'floor_reached_0',
-    'floor_reached_1', 
-    'floor_reached_2',
-    'button_inside_0',
-    'button_inside_1',
-    'button_inside_2',
-    'call_button_0_up',
-    'call_button_1_up',
-    'call_button_1_down',
-    'call_button_2_down',
-    'emergency_stop',
-    'emergency_released',
-    'maxim_connected',         # MAX32655 connected to ESP32
-    'maxim_connection_lost'    # Heartbeat timeout
+    "stopped_at_floor_0",
+    "stopped_at_floor_1",
+    "stopped_at_floor_2",
+    "cabin_button_0",
+    "cabin_button_1",
+    "cabin_button_2",
+    "call_button_0_up",
+    "call_button_1_up",
+    "call_button_1_down",
+    "call_button_2_down",
+    "estop_activated",
+    "estop_released",
+    "max32655_connected",
+    "max32655_disconnected",
 ]

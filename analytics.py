@@ -25,9 +25,9 @@ def get_total_trips(start_date=None, end_date=None):
     """
     query = db.session.query(func.count(Event.id)).join(EventType).filter(
         EventType.event_type.in_([
-            'button_inside_0',
-            'button_inside_1',
-            'button_inside_2'
+            "cabin_button_0",
+            "cabin_button_1",
+            "cabin_button_2",
         ])
     )
     
@@ -53,9 +53,9 @@ def get_total_floor_passes(start_date=None, end_date=None):
     """
     query = db.session.query(func.count(Event.id)).join(EventType).filter(
         EventType.event_type.in_([
-            'floor_reached_0',
-            'floor_reached_1',
-            'floor_reached_2'
+            "stopped_at_floor_0",
+            "stopped_at_floor_1",
+            "stopped_at_floor_2",
         ])
     )
     
@@ -83,9 +83,9 @@ def get_trips_by_floor(start_date=None, end_date=None):
         func.count(Event.id).label('count')
     ).join(EventType).filter(
         EventType.event_type.in_([
-            'button_inside_0',
-            'button_inside_1',
-            'button_inside_2'
+            "cabin_button_0",
+            "cabin_button_1",
+            "cabin_button_2",
         ])
     ).group_by(Event.floor)
     
@@ -115,9 +115,9 @@ def get_floor_passes_by_floor(start_date=None, end_date=None):
         func.count(Event.id).label('count')
     ).join(EventType).filter(
         EventType.event_type.in_([
-            'floor_reached_0',
-            'floor_reached_1',
-            'floor_reached_2'
+            "stopped_at_floor_0",
+            "stopped_at_floor_1",
+            "stopped_at_floor_2",
         ])
     ).group_by(Event.floor)
     
@@ -148,9 +148,9 @@ def get_button_press_counts(start_date=None, end_date=None):
         }
     """
     inside_buttons = [
-        'button_inside_0',
-        'button_inside_1',
-        'button_inside_2'
+        "cabin_button_0",
+        "cabin_button_1",
+        "cabin_button_2",
     ]
     
     call_buttons = [
@@ -200,9 +200,13 @@ def get_most_requested_floor(start_date=None, end_date=None):
         dict: {'floor': floor_number, 'count': request_count}
     """
     button_events = [
-        'button_inside_0', 'button_inside_1', 'button_inside_2',
-        'call_button_0_up', 'call_button_1_up',
-        'call_button_1_down', 'call_button_2_down'
+        "cabin_button_0",
+        "cabin_button_1",
+        "cabin_button_2",
+        "call_button_0_up",
+        "call_button_1_up",
+        "call_button_1_down",
+        "call_button_2_down",
     ]
     
     query = db.session.query(
@@ -238,7 +242,7 @@ def get_emergency_stop_count(start_date=None, end_date=None):
         int: Number of emergency stop activations
     """
     query = db.session.query(func.count(Event.id)).join(EventType).filter(
-        EventType.event_type == 'emergency_stop'
+        EventType.event_type == "estop_activated"
     )
     
     if start_date:
@@ -262,7 +266,7 @@ def get_average_emergency_duration(start_date=None, end_date=None):
     """
     # Get all emergency stop events
     stop_query = db.session.query(Event.timestamp).join(EventType).filter(
-        EventType.event_type == 'emergency_stop'
+        EventType.event_type == "estop_activated"
     )
     if start_date:
         stop_query = stop_query.filter(Event.timestamp >= start_date)
@@ -273,7 +277,7 @@ def get_average_emergency_duration(start_date=None, end_date=None):
     
     # Get all emergency release events
     release_query = db.session.query(Event.timestamp).join(EventType).filter(
-        EventType.event_type == 'emergency_released'
+        EventType.event_type == "estop_released"
     )
     if start_date:
         release_query = release_query.filter(Event.timestamp >= start_date)
@@ -369,9 +373,9 @@ def get_trips_per_day(days=7):
         func.count(Event.id).label('count')
     ).join(EventType).filter(
         EventType.event_type.in_([
-            'button_inside_0',
-            'button_inside_1',
-            'button_inside_2'
+            "cabin_button_0",
+            "cabin_button_1",
+            "cabin_button_2",
         ]),
         Event.timestamp >= start_date
     ).group_by('date').order_by('date')
@@ -399,7 +403,7 @@ def get_connection_stats(start_date=None, end_date=None):
     """
     # Count connections
     conn_query = db.session.query(func.count(Event.id)).join(EventType).filter(
-        EventType.event_type == 'maxim_connected'
+        EventType.event_type == "max32655_connected"
     )
     if start_date:
         conn_query = conn_query.filter(Event.timestamp >= start_date)
@@ -410,7 +414,7 @@ def get_connection_stats(start_date=None, end_date=None):
     
     # Count disconnections
     disconn_query = db.session.query(func.count(Event.id)).join(EventType).filter(
-        EventType.event_type == 'maxim_connection_lost'
+        EventType.event_type == "max32655_disconnected"
     )
     if start_date:
         disconn_query = disconn_query.filter(Event.timestamp >= start_date)
